@@ -1,6 +1,7 @@
 /*!
  * mustache.js - Logic-less {{mustache}} templates with JavaScript
  * http://github.com/janl/mustache.js
+ * Patched by: Michiel de Wit (https://github.com/michieldewit/mustache.js)
  */
 
 /*global define: false*/
