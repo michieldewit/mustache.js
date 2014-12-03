@@ -1,1 +1,1 @@
-Hi {{name}}. => <b>Hi Tater.</b> To tinker?
+text,name,text => <b>Hi Tater.</b> To tinker?

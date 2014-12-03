@@ -429,26 +429,21 @@
   Writer.prototype.render = function (template, view, partials) {
     var tokens = this.parse(template);
     var context = (view instanceof Context) ? view : new Context(view);
-    return this.renderTokens(tokens, context, partials, template);
+    return this.renderTokens(tokens, context, partials);
   };
 
   /**
    * Low-level method that renders the given array of `tokens` using
    * the given `context` and `partials`.
-   *
-   * Note: The `originalTemplate` is only ever used to extract the portion
-   * of the original template that was contained in a higher-order section.
-   * If the template doesn't use higher-order sections, this argument may
-   * be omitted.
    */
-  Writer.prototype.renderTokens = function (tokens, context, partials, originalTemplate) {
+  Writer.prototype.renderTokens = function (tokens, context, partials) {
     var buffer = '';
 
     // This function is used to render an arbitrary template
     // in the current context by higher-order sections.
     var self = this;
-    function subRender(template) {
-      return self.render(template, context, partials);
+    function subRender(tokens) {
+      return self.renderTokens(tokens, context, partials);
     }
 
     var token, value;
@@ -464,21 +459,18 @@
 
         if (isArray(value)) {
           for (var j = 0, valueLength = value.length; j < valueLength; ++j) {
-            buffer += this.renderTokens(token[4], context.push(value[j]), partials, originalTemplate);
+            buffer += this.renderTokens(token[4], context.push(value[j]), partials);
           }
         } else if (typeof value === 'object' || typeof value === 'string') {
-          buffer += this.renderTokens(token[4], context.push(value), partials, originalTemplate);
+          buffer += this.renderTokens(token[4], context.push(value), partials);
         } else if (isFunction(value)) {
-          if (typeof originalTemplate !== 'string')
-            throw new Error('Cannot use higher-order sections without the original template');
-
-          // Extract the portion of the original template that the section contains.
-          value = value.call(context.view, originalTemplate.slice(token[3], token[5]), subRender);
+          // Pass the tokens and subrenderer to the lambda function
+          value = value.call(context.view, token[4], subRender);
 
           if (value != null)
             buffer += value;
         } else {
-          buffer += this.renderTokens(token[4], context, partials, originalTemplate);
+          buffer += this.renderTokens(token[4], context, partials);
         }
 
         break;
@@ -488,7 +480,7 @@
         // Use JavaScript's definition of falsy. Include empty arrays.
         // See https://github.com/janl/mustache.js/issues/186
         if (!value || (isArray(value) && value.length === 0))
-          buffer += this.renderTokens(token[4], context, partials, originalTemplate);
+          buffer += this.renderTokens(token[4], context, partials);
 
         break;
       case '>':
@@ -497,8 +489,10 @@
 
         value = isFunction(partials) ? partials(token[1]) : partials[token[1]];
 
-        if (value != null)
-          buffer += this.renderTokens(this.parse(value), context, partials, value);
+        if (value != null) {
+          var subTokens = isArray(value) ? value : this.parse(value);
+          buffer += this.renderTokens(subTokens, context, partials);
+        }
 
         break;
       case '&':
